@@ -1,0 +1,9 @@
+{
+  "id": "obsidian-word-plugin",
+  "name": "Word Features Plugin",
+  "version": "1.0.0",
+  "minAppVersion": "0.12.0",
+  "author": "Your Name",
+  "description": "A plugin that integrates word processing features into Obsidian.",
+  "isDesktopOnly": false
+}
