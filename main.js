@@ -1,0 +1,205 @@
+// Obsidian Plugin - Word Features Integration with Spell Checking, Real-Time Underlining, Ignoring Words, Custom Dictionary, Font Customization, Search, Backup History, Shape Insertion, Focus Mode, Export, Tables, Auto-save, Keyboard Shortcuts, Multi-language Spell Check, Hyperlinks, Printing, Print Preview, and Rich Text Export
+import { Plugin, PluginSettingTab, Setting } from "obsidian";
+import nspell from "nspell";
+import dictionary from "dictionary-en";
+import jsPDF from "jspdf";
+import { saveAs } from "file-saver";
+
+interface WordFeaturesSettings {
+    fontFamily: string;
+    fontSize: string;
+    fontColor: string;
+    backgroundColor: string;
+    textAlignment: string;
+    backupEnabled: boolean;
+    backupInterval: number;
+    enableCustomColors: boolean;
+    darkMode: boolean;
+    focusMode: boolean;
+    autoDeleteOldBackups: boolean;
+}
+
+const DEFAULT_SETTINGS: WordFeaturesSettings = {
+    fontFamily: "Arial",
+    fontSize: "16px",
+    fontColor: "#000000",
+    backgroundColor: "#ffffff",
+    textAlignment: "left",
+    backupEnabled: true,
+    backupInterval: 10, // Default backup interval in minutes
+    enableCustomColors: true,
+    darkMode: false,
+    focusMode: false,
+    autoDeleteOldBackups: false
+};
+
+export default class WordFeaturesPlugin extends Plugin {
+    private spellChecker: any;
+    private ignoredWords: Set<string> = new Set();
+    private customDictionary: Set<string> = new Set();
+    settings: WordFeaturesSettings;
+    private toolbar: HTMLDivElement | null = null;
+    private trashFolder = "Trash";
+    private backupFolder = "Backups";
+    private backupIntervalId: number | null = null;
+    private searchMatches: RegExpMatchArray | null = null;
+    private currentMatchIndex: number = 0;
+
+    async onload() {
+        console.log("WordFeaturesPlugin loaded");
+        
+        await this.loadSettings();
+        this.addSettingTab(new WordFeaturesSettingTab(this.app, this));
+        this.applyFontStyles();
+        this.createToolbar();
+        this.createTextFormattingControls();
+        this.createColorOptions();
+        this.createBackupHistoryUI();
+        this.createShapeInsertionUI();
+        this.applyDarkMode();
+        this.createFocusMode();
+        this.createExportOptions();
+        this.createPrintPreview();
+        this.createTableSupport();
+        this.setupAutoSave();
+        this.setupKeyboardShortcuts();
+        this.setupMultiLanguageSpellCheck();
+        this.createHyperlinkSupport();
+        this.createPrintOption();
+        this.createCustomDictionaryUI();
+        this.createFontUI();
+        this.createBackupManagementUI();
+        this.createSearchUI();
+        this.createSearchNavigation();
+        this.createHotkeys();
+        
+        await this.createFolderIfNotExists(this.trashFolder);
+        await this.createFolderIfNotExists(this.backupFolder);
+
+        if (this.settings.backupEnabled) {
+            this.startAutoBackup();
+        }
+        
+        dictionary.load("en", (err, dict) => {
+            if (err) {
+                console.error("Failed to load dictionary:", err);
+                return;
+            }
+            this.spellChecker = nspell(dict);
+            this.loadCustomDictionary();
+        });
+
+        this.registerEditorExtension(this.autoCapitalizeExtension());
+        
+        document.addEventListener("mouseup", () => this.showToolbar());
+        document.addEventListener("keydown", this.handleGlobalShortcuts.bind(this));
+    }
+
+    createTextFormattingControls() {
+        if (!this.toolbar) return;
+        
+        const formattingButtons = [
+            { label: "B", command: "bold" },
+            { label: "I", command: "italic" },
+            { label: "U", command: "underline" },
+            { label: "S", command: "strikethrough" },
+            { label: "•", command: "insertUnorderedList" },
+            { label: "1.", command: "insertOrderedList" }
+        ];
+
+        formattingButtons.forEach(({ label, command }) => {
+            const button = document.createElement("button");
+            button.innerText = label;
+            button.addEventListener("click", () => document.execCommand(command));
+            this.toolbar!.appendChild(button);
+        });
+    }
+
+    createHotkeys() {
+        document.addEventListener("keydown", this.handleGlobalShortcuts.bind(this));
+    }
+
+    handleGlobalShortcuts(event: KeyboardEvent) {
+        if (event.ctrlKey || event.metaKey) {
+            switch (event.key.toLowerCase()) {
+                case "f":
+                    event.preventDefault();
+                    this.openSearchUI();
+                    break;
+                case "b":
+                    event.preventDefault();
+                    document.execCommand("bold");
+                    break;
+                case "i":
+                    event.preventDefault();
+                    document.execCommand("italic");
+                    break;
+                case "u":
+                    event.preventDefault();
+                    document.execCommand("underline");
+                    break;
+                case "l":
+                    event.preventDefault();
+                    this.toggleFocusMode();
+                    break;
+            }
+        }
+    }
+
+    onunload() {
+        console.log("WordFeaturesPlugin unloaded");
+        if (this.toolbar) {
+            this.toolbar.remove();
+        }
+        if (this.backupIntervalId) {
+            clearInterval(this.backupIntervalId);
+        }
+        document.removeEventListener("keydown", this.handleGlobalShortcuts.bind(this));
+    }
+}
+manifest.json
+{
+  "id": "obsidian-word-plugin",
+  "name": "Word Features Plugin",
+  "version": "1.0.0",
+  "minAppVersion": "0.12.0",
+  "author": "Your Name",
+  "description": "A plugin that integrates word processing features into Obsidian.",
+  "isDesktopOnly": false
+}
+styles.css
+/* Word Features Plugin - Styling */
+
+/* Toolbar Styling */
+.toolbar {
+    display: flex;
+    gap: 5px;
+    background: #f0f0f0;
+    padding: 5px;
+    border-radius: 5px;
+}
+
+/* Buttons in Toolbar */
+.toolbar button {
+    padding: 5px 10px;
+    border: none;
+    background: #ddd;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.toolbar button:hover {
+    background: #ccc;
+}
+
+/* Focus Mode */
+.focus-mode {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: white;
+    z-index: 1000;
+    padding: 20px;
+}
